@@ -1,0 +1,7 @@
+interface:
+  display_name: "AI Software Team"
+  short_description: "Orchestrate a minimal expert software delivery team"
+  default_prompt: "Use $ai-software-team to choose risk-adaptive Lean, Balanced, or Assurance handling; Lean all-low localized work may stay root-only."
+
+policy:
+  allow_implicit_invocation: true

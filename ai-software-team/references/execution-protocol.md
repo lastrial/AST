@@ -1,0 +1,38 @@
+# Execution Protocol
+
+Resolve `scripts/validate_team_plan.py` relative to the Skill directory. Use schema v3 for L2+, multiple waves, or any risk gate; v1/v2 are migration errors.
+
+Before framing or a material route decision, follow [model routing](model-routing.md) to confirm the current root model/effort or mark missing fields unknown. Keep source task/turn, root decision, suggested target, and the user's retained choice in working notes, not invented v3 fields. These root observations and decisions require behavioral verification; the plan validator only enforces child-route consistency. No root default, mandatory switch, or configuration write is implied.
+
+`execution_scope` is `delivery` or `read-only`. Delivery has active implementation gates; read-only and every held plan forbid implementation, operations, and all `write_paths`. `STOP` is always pending and held. A pending `REVISE` is held; a confirmed `REVISE` has non-empty confirmation evidence and clears its direction hold. `GO` never has pending direction confirmation.
+
+An ordinary L2 delivery can use two children when QA and final code review safely merge:
+
+```json
+{
+  "version": 3,
+  "execution_scope": "delivery",
+  "architecture_change": false,
+  "architecture_basis": null,
+  "mode": {"requested": "auto", "effective": "balanced", "reasons": ["ordinary L2 change"]},
+  "runtime": {"available_models": {"gpt-5.6-terra": ["medium"]}, "availability_evidence": ["runtime report"]},
+  "members": [
+    {"task_name": "terra_m_backend_dev", "roles": ["backend_developer"], "duties": ["implementation"], "wave": 1, "reason": "Owns server change", "owns": ["handler"], "write_paths": ["src/handler.py"], "deliverable": "Change and test evidence", "depends_on": [], "assignment_assessment": {"complexity": "medium", "risk": "low", "uncertainty": "low"}, "delegation": {"invoke_ast": false, "spawn_subagents": false, "ast_access": "forbidden", "ast_maintenance_targets": []}, "execution_budget": {"max_tool_calls": 24, "max_followups": 1, "max_evidence_items": 8, "no_progress_limit": 3}, "route": {"model": "gpt-5.6-terra", "effort": "medium", "fork_turns": "none", "context_mode": "self-contained", "selection_reason": "Ordinary build", "availability_evidence": ["runtime report"]}},
+    {"task_name": "terra_m_verify", "roles": ["qa_engineer", "code_reviewer"], "duties": ["test", "review"], "wave": 2, "reason": "Independent verification", "owns": ["final diff and tests"], "write_paths": [], "deliverable": "Test and final review evidence", "depends_on": ["terra_m_backend_dev"], "assignment_assessment": {"complexity": "medium", "risk": "low", "uncertainty": "low"}, "delegation": {"invoke_ast": false, "spawn_subagents": false, "ast_access": "forbidden", "ast_maintenance_targets": []}, "execution_budget": {"max_tool_calls": 24, "max_followups": 1, "max_evidence_items": 8, "no_progress_limit": 3}, "route": {"model": "gpt-5.6-terra", "effort": "medium", "fork_turns": "none", "context_mode": "self-contained", "selection_reason": "Independent verification", "availability_evidence": ["runtime report"]}}
+  ]
+}
+```
+
+The complete top-level metadata remains required: level, assessment, outcome, constraints, acceptance criteria, direction/confirmation/hold fields, risks, evidence, architecture flag, and `architecture_basis`. The basis is `null` when there is no architecture change; otherwise its unique category list and concrete rationale establish why a component boundary, authority boundary, deployment topology, public contract, or long-lived data responsibility changes. Member, runtime, route, mode, assessment, delegation, and execution-budget objects have strict allowlists. Routes use explicit confirmed native model+effort naming; only string `"none"` or a justified positive finite-history string is valid for `fork_turns`.
+
+Schema v3 also accepts the new exact IDs listed in [model routing](model-routing.md), while retaining legacy routes. Only list a model in `runtime.available_models` when this child launcher confirms it; another chat launcher or the root picker may expose different models. Sol and Luna prefixes span generations, but plan and receipt model IDs must match exactly. The registry rejects `gpt-6-luna` with `ultra`, including in the runtime effort list. Remaining effort options are gated by launcher evidence and the documented delegation boundaries. The example above is illustrative, not an availability report.
+
+Every child has `delegation: {"invoke_ast": false, "spawn_subagents": false, "ast_access": "forbidden", "ast_maintenance_targets": []}` unless it is explicitly maintaining approved AST artifacts. Copy the member's exact delegation and execution budget into the self-contained child brief; a validated plan is not a runtime enforcement channel by itself. Those targets are a non-empty unique Skill-directory-relative subset of `SKILL.md`, `agents/openai.yaml`, all five `references/*.md` files, and the two validator scripts; repository prefixes and unrelated paths are invalid. This never authorizes a child to call AST, form a team, read orchestration references for itself, or expand scope. Every child also has a task-sized `execution_budget`; normal defaults are `max_tool_calls: 24`, `max_followups: 1`, `max_evidence_items: 8`, and `no_progress_limit: 3` (schema limits are 64/3/20/5). It returns a checkpoint to the root when that budget is exhausted, the scope expands, repeated tools make no progress, or context is approaching compaction. The root decides whether to continue, narrow the task, or start a fresh compact child.
+
+Post-run observations are never plan fields. If a runtime/root has a real observation source, it may emit a separate receipt with `source: "runtime-observed"`, a concrete `run_id`, and one entry per member. Validate it with `python3 scripts/validate_team_plan.py team-plan.json --receipt runtime-receipt.json`; the validator checks shape, route/prefix consistency, follow-up budget, and observed tool calls against the tool-call budget only. `tool_calls`, `model_calls`, and token/context metrics are non-negative integers or null; `credits` is a non-negative number or null. Null means unobserved, and validation does not prove a claimed source is authentic.
+
+For active delivery, acceptance criteria and evidence are non-empty. The effective severity is the maximum of the plan assessment and each member assessment: a child with `risk: high` forces Assurance and its confirmation gate. Every triggered risk specialist is dependency-integrated: requirements/design/challenge precede builders; test/review flows into a genuinely covering final reviewer; operations-only work follows final review. `fork_turns: "none"` requires `context_mode: "self-contained"`; a finite-history string requires `"self-contained-finite-history"` plus its reason.
+
+After each evidence-producing discovery, challenge, test, or review wave, recompute assessment, flags, and direction. If any increases, pause subsequent writes; update the team, routes, effective mode, confirmation state, and plan; then revalidate before starting the next wave.
+
+Choose model and effort separately for each subsequent assignment. New evidence can justify raising effort, delegating to Astra, or returning bounded implementation to Terra; a routing change alone does not raise semantic risk. A recommendation is not an executed switch. Retain the user's root choice unless they change it; repeat a recommendation only for materially new evidence. Reuse authorization and completed checks where still applicable. Before requesting a consequential missing decision, prepare the already-authorized reviewable work, and identify the exact Skill instruction if it causes a pause.
